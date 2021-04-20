@@ -1,7 +1,7 @@
 /*
  *  File: xml
  *
- *  Provides functions for working with XML files.
+ *  Provides functions for working with Xml files.
  */
 IMPORT file
 IMPORT math
@@ -17,7 +17,7 @@ EXPORT loadFromFile
 /*
  *  Exception: XmlParseException
  *
- *  Indicates malformed XML that was unable to be parsed into Document format.
+ *  Indicates malformed Xml that was unable to be parsed into Document format.
  */
 EXPORT EXCEPTION XmlParseException
 
@@ -26,9 +26,9 @@ LET NameCharacters: Array<String> := [
     "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" ]
 
--- The following section is for encoding and decoding XML Entities, and is only setup for the basics, currently.
+-- The following section is for encoding and decoding Xml Entities, and is only setup for the basics, currently.
 -- TODO: implement full Entity support.
-LET EntityName: Array<Object> := [
+LET EntityName: Array<String> := [
     /*  0*/ "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
     /* 32*/ "", "", "quot", "", "", "", "amp", "apos", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "lt", "", "gt", "",
     /* 64*/ "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -40,15 +40,17 @@ LET EntityName: Array<Object> := [
 ]
 
 VAR line: Number := 0
-TYPE EntityTable IS Dictionary<Object>
+TYPE EntityTable IS Dictionary<String>
 
 FUNCTION CreateEntityTable(): EntityTable
     VAR e: EntityTable := {}
     FOR c := 0 TO 255 DO
         IF EntityName[c] <> "" THEN
             e[EntityName[c]] := string.fromCodePoint(c)
+            --print("\(c): \(e[EntityName[c]]) is set to \(string.fromCodePoint(c))")
         END IF
     END FOR
+    --IMPORT sys sys.exit(0)
     RETURN e
 END FUNCTION
 
@@ -77,19 +79,22 @@ END FUNCTION
 
 FUNCTION Encode(s: String): String
     VAR r: String := ""
-    VAR x: Number := 0
+    --VAR x: Number := 0
 
-    WHILE x < s.length() DO
-        LET c: Number := string.toCodePoint(s[x])
+    --WHILE x < s.length()-1 DO
+    FOREACH x IN s[FIRST TO LAST] DO
+        --LET c: Number := string.toCodePoint(s[x])
+        LET c: Number := string.toCodePoint(x)
         IF EntityName[c] <> "" THEN
             r.append("&\(EntityName[c]);")
         ELSIF ((c < 0x20 AND c <> 0x9 AND c <> 0xa AND c <> 0xd) OR c > 0x7F) THEN
             r.append("&#\(c);")
         ELSE
-            r.append(s[x])
+            r.append(x)
         END IF
-        INC x
-    END WHILE
+        --INC x
+    --END WHILE
+    END FOREACH
     RETURN r
 END FUNCTION
 
@@ -97,7 +102,7 @@ FUNCTION Decode(s: String): String
     VAR r: String := ""
     VAR x: Number := 0
 
-    WHILE (s[x] <> "" AND x <> s.length()) DO
+    WHILE (x <> s.length() AND s[x] <> "") DO
         IF s[x] = "\r" THEN
             -- ignore
             INC x
@@ -106,7 +111,7 @@ FUNCTION Decode(s: String): String
             INC x
         ELSIF s[x] = "&" THEN
             VAR e: Number := x
-            WHILE e < s.length() DO
+            WHILE e <> s.length() DO
                 IF s[e] = ";" THEN
                     EXIT WHILE
                 END IF
@@ -135,11 +140,11 @@ FUNCTION Decode(s: String): String
             INC x
         END IF
     END WHILE
-    --print("Decoded: \(r)")
+    print("Decoded: \(r)")
     RETURN r
 END FUNCTION
 
--- The following code is all dedicated to XML parsing and handling.
+-- The following code is all dedicated to Xml parsing and handling.
 
 /*
  *  Type: NodeType
@@ -156,14 +161,14 @@ END ENUM
 /*
  *  Type: Attributes
  *
- *  Represents Attributes of an XML Element.
+ *  Represents Attributes of an Xml Element.
  */
 TYPE Attributes IS Dictionary<String>
 
 /*
  *  Type: Node
  *
- *  Represents an XML node, including Elements, Nodes, and Literal Text.
+ *  Represents an Xml node, including Elements, Nodes, and Literal Text.
  */
 TYPE Node IS RECORD
     type: NodeType
@@ -177,7 +182,7 @@ END RECORD
 /*
  *  Type: Document
  *
- *  Represents an XML document.
+ *  Represents an Xml document.
  */
 TYPE Document IS RECORD
     root: Node
@@ -186,7 +191,7 @@ END RECORD
 /*
  *  Function: createNode
  *
- *  Creates a new XML Node.
+ *  Creates a new Xml Node.
  */
 FUNCTION createNode(t: NodeType): Node
     RETURN Node(type WITH t)
@@ -195,7 +200,7 @@ END FUNCTION
 /*
  *  Function: createElement
  *
- *  Creates a Node that represents an XML Element document node.
+ *  Creates a Node that represents an Xml Element document node.
  */
 FUNCTION createElement(name: String, attrib: Attributes): Node
     RETURN Node(type        WITH NodeType.Element,
@@ -206,7 +211,7 @@ END FUNCTION
 /*
  *  Function: createText
  *
- *  Creates a Node that represents an XML Text document node.
+ *  Creates a Node that represents an Xml Text document node.
  */
 FUNCTION createText(text: String): Node
     RETURN Node(type    WITH NodeType.Text,
@@ -232,14 +237,20 @@ FUNCTION Node.getElements(self: Node, name: String): Array<Node>
     RETURN elms
 END FUNCTION
 
+FUNCTION Document.toString(self: Document): String
+    RETURN self.root.toString()
+END FUNCTION
+
 /*
  *  Function: toString
  *
  *  Returns a String representing the text version
- *  of the XML Node, including any attributes provided
+ *  of the Xml Node, including any attributes provided
  *  on that node, and all the children below that node.
  */
 FUNCTION Node.toString(self: Node, indentLevel: Number DEFAULT 0): String
+--FUNCTION Node.toString(self: Node, indentLevel: Number): String
+--FUNCTION Node.toString(self: Node): String
     FUNCTION indent(level: Number): String
         VAR r: String := ""
         FOR i := 0 TO level DO
@@ -263,6 +274,7 @@ FUNCTION Node.toString(self: Node, indentLevel: Number DEFAULT 0): String
             r.append(">\n")
             FOREACH n IN self.children DO
                 r.append(indent(indentLevel) & n.toString(indentLevel+1))
+                --r.append(n.toString())
             END FOREACH
             r.append("</\(self.name)>\n")
         END IF
@@ -313,18 +325,18 @@ END FUNCTION
 FUNCTION Node.InnerXml(self: Node): String
     FOREACH c IN self.children DO
         IF c.type = NodeType.Text THEN
-            RETURN c.toString()
+            RETURN c.toString(0)
         END IF
     END FOREACH
     RETURN ""
 END FUNCTION
 
-LET whiteSpace: Object := [" ", "\t", "\r", "\n"]
+LET whiteSpace: Array<String> := [" ", "\t", "\r", "\n"]
 LET quotes: Array<String> := ["\"", "'"]
 
-/* Below are string helper functions for parsing XML files. */
+/* Below are string helper functions for parsing Xml files. */
 FUNCTION eatWhiteSpace(s: String, INOUT x: Number)
-    WHILE (x <> s.length() AND s[x] IN [" ", "\t", "\r", "\n"]) DO
+    WHILE (x < s.length()-1 AND s[x] IN [" ", "\t", "\r", "\n"]) DO
         IF s[x] IN ["\r", "\n"] THEN
             INC line
         END IF
@@ -333,7 +345,7 @@ FUNCTION eatWhiteSpace(s: String, INOUT x: Number)
 END FUNCTION
 
 FUNCTION eatByteOrderMarks(s: String, INOUT x: Number)
-    WHILE (x <> s.length() AND s[x] IN ["\uFEFF"]) DO 
+    WHILE (x < s.length()-1 AND s[x] IN ["\uFEFF"]) DO 
         INC x 
     END WHILE
 END FUNCTION
@@ -397,9 +409,9 @@ FUNCTION ParseAttributes(s: String, INOUT x: Number): Attributes
         END IF
 
         VAR p: Number := x
-        
+
         WHILE isnamechar(s[x]) DO INC x END WHILE
-        
+
         VAR name: String := s[p TO x-1]
 
         eatWhiteSpace(s, INOUT x)
@@ -415,12 +427,12 @@ FUNCTION ParseAttributes(s: String, INOUT x: Number): Attributes
                 RAISE XmlParseException("Opening '\"' expected on line \(line) offset: \(x)")
             END IF
             INC x
-            p := x 
+            p := x
 
             WHILE (x < s.length() AND (s[x] NOT IN quotes)) DO INC x END WHILE
 
             IF s[x] NOT IN quotes THEN
-                RAISE XmlParseException("Unexpected end of file/data found while parsing XML.")
+                RAISE XmlParseException("Unexpected end of file/data found while parsing Xml.")
             END IF
 
             value := Decode(s[p TO x-1])
@@ -430,9 +442,21 @@ FUNCTION ParseAttributes(s: String, INOUT x: Number): Attributes
     END LOOP
 END FUNCTION
 
+FUNCTION ParseComment(s: String, INOUT x: Number)
+    LET cstart: Number := x
+    WHILE x < s.length() AND s[x TO x+1] <> "--" DO
+        WHILE s[x TO x+1] <> "--" DO INC x END WHILE
+    END WHILE
+    print("Ignored Comment: \(s[cstart TO x])")
+END FUNCTION
+
 FUNCTION ParseNode(s: String, parent: String, INOUT x: Number): Node
     IF s[x] = "<" THEN
         INC x
+
+        IF s[x] = "!" THEN
+            ParseComment(s, INOUT x)
+        END IF
 
         eatWhiteSpace(s, INOUT x)
 
@@ -502,7 +526,7 @@ FUNCTION ParseNode(s: String, parent: String, INOUT x: Number): Node
         END WHILE
 
         IF NOT foundparent THEN
-            RAISE XmlParseException("Unexpected end of file or data while parsing XML node element.")
+            RAISE XmlParseException("Unexpected end of file or data while parsing Xml node element.")
         END IF
         RETURN e
     ELSE
@@ -517,7 +541,7 @@ END FUNCTION
 /*
  *  Function: parse
  *
- *  Parse the given string as an XML document.
+ *  Parse the given string as an Xml document.
  */
 FUNCTION parse(s: String): Document
     VAR x: Number := 0
@@ -532,7 +556,7 @@ FUNCTION parse(s: String): Document
         x := x + 5
         _ := ParseAttributes(s, INOUT x)
         IF s[x TO x+1] <> "?>" THEN
-            RAISE XmlParseException("Malformed XML data.  Missing document declaration tags.  Expected '?>', found \(s[x TO x+2]) on line \(line) offset: \(x).")
+            RAISE XmlParseException("Malformed Xml data.  Missing document declaration tags.  Expected '?>', found \(s[x TO x+2]) on line \(line) offset: \(x).")
         END IF
         x := x + 2
     END IF
@@ -543,7 +567,7 @@ FUNCTION parse(s: String): Document
         x := x + 16
         _ := ParseAttributes(s, INOUT x)
         IF s[x TO x+1] <> "?>" THEN
-            RAISE XmlParseException("Malformed XML processing instruction.  Expected '?>' on line \(line) offset: \(x).")
+            RAISE XmlParseException("Malformed Xml processing instruction.  Expected '?>' on line \(line) offset: \(x).")
         END IF
         x := x + 2
         eatWhiteSpace(s, INOUT x)
@@ -621,7 +645,7 @@ FUNCTION parse(s: String): Document
     END IF
 
     IF s[x] <> "<" THEN
-        RAISE XmlParseException("Malformed XML data; Expected opening tag, instead of \(s) on line \(line) offset: \(x).")
+        RAISE XmlParseException("Malformed Xml data; Expected opening tag, instead of \(s[FIRST TO x]) on line \(line) offset: \(x).")
     END IF
 
     d.root := ParseNode(s, "", INOUT x)
@@ -631,12 +655,12 @@ END FUNCTION
 /*
  *  Function: loadFromFile
  *
- *  Loads an XML file from disk, parses it into a <Document>, and 
+ *  Loads an Xml file from disk, parses it into a <Document>, and 
  *  returns the Document.
  *
  *  Exceptions:
  *      - <FileOpenError> - if the file cannot be opened
- *      - <XmlParseException> - if the file does not contain XML
+ *      - <XmlParseException> - if the file does not contain Xml
  *        contents.
  */
 FUNCTION loadFromFile(fn: String): Document
@@ -657,166 +681,9 @@ TYPE TFunctionCall IS RECORD
 END RECORD
 
 BEGIN MAIN
-
-/*     VAR xml: String := @@"
-        <?xml version="1.0" encoding="UTF-8"?>
-        <?xml-stylesheet type="text/xsl" href="simple.xsl" ?>
-        <note type="text">
-            <to>Greg</to>
-            <from>Larry</from>
-            <heading>Reminder</heading>
-            <body>Don't forget to test!</body>
-        </note>"@@
- */
     VAR d: Document := Document()
-/*     print(d.root.toString())
-    
-    file.writeBytes("tmp/xmlTest.xml", d.root.toString().toBytes())
- */    
-    --d := loadFromFile("tmp/xmlTest.xml")
-    
-    d := loadFromFile("..\\Data\\test_ffi.xml")
-    --print(d.root.toString())
-    
-    --FOREACH c IN d.children DO
-        VAR funcs: Array<TFunctionCall> := []
-        VAR elms: Array<Node> := d.root.getElements("include")
-        FOREACH n IN elms DO
-            VAR cdecls: Array<Node> := n.getElements("cdecl")
-            VAR params: Number := -1
-            --VAR paramType: String := ""
-            --VAR paramName: String := ""
-            FOREACH cd IN cdecls DO
-                --VAR ident: String := ""
-                VAR fd: TFunctionCall := TFunctionCall()
-                funcs.append(fd)
-                FOREACH al IN cd.getElements("attributelist") DO
-                    print("\(al)")
-                    /* --foreach a in al.getelements("attribute") do */
-                        /* foreach pl in al.getelements("parmlist") do */
-                            /* foreach p in pl.getelements("parm") do */
-                                /* inc params */
-                                /* if p.attributes.keys().size() > 0 then */
-                                    /* foreach a1 in getattributes(p, "attributelist", "attribute", inout ident) do */
-                                        /* --print(a1.tostring()) */
-                                        /* if a1.attributes.keys().size() > 0 then */
-                                            /* if a1.name = "attribute" then */
-                                                /* case a1.attributes["name"] */
-                                                    /* when "name" do */
-                                                        /* funcs[funcs.size()-1].parms[params].name := a.attributes["value"] */
-                                                        /* print("fp.name: \(funcs[funcs.size()-1].parms[params].name)") */
-                                                    /* when "type" do */
-                                                        /* funcs[funcs.size()-1].parms[params].type := a.attributes["value"] */
-                                                        /* print("fp.type: \(funcs[funcs.size()-1].parms[params].type)") */
-                                                /* end case */
-                                            /* end if */
-                                        /* end if */
-                                    /* end foreach */
-                                /* end if */
-                            /* end foreach */
-                        /* end foreach */
-                        /* if a.name = "attribute" then */
-                            /* case a.attributes["name"] */
-                                /* when "name" do */
-                                    /* funcs[funcs.size()-1].name := a.attributes["value"] */
-                                    /* print("fd.name: \(fd.name)") */
-                                /* when "type" do */
-                                    /* funcs[funcs.size()-1].type := a.attributes["value"] */
-                                    /* print("fd.type: \(fd.type)") */
-                            /* end case */
-                        /* end if */
-                    /* --end foreach */
-                END FOREACH
-                print("Adding function: \(fd.name)")
-                params := -1
-                /* IMPORT sys */
-                /* sys.exit(1) */
-            END FOREACH
-        END FOREACH
-        VAR prototype: String := "DECLARE NATIVE FUNCTION "
-        FOREACH f IN funcs DO
-            prototype := prototype & f.name & "("
-            FOREACH p IN f.parms INDEX i DO
-                prototype := prototype & p.name & ": " & p.type
-                IF i <> f.parms.size() THEN
-                    prototype := prototype & ","
-                END IF
-            END FOREACH
-            IF f.type <> "" THEN
-                prototype := prototype & ": " & f.type
-            END IF
-        END FOREACH
-        print(prototype)
-        --fd := TFunctionCall()
-        --fp := TParameter()
-            
-                    /* FOREACH p IN getAttributes(a, "parmlist", "parm", INOUT ident) DO */
-                        /* IF p.attributes.keys().size() > 0 THEN */
-                            /* FOREACH a1 IN getAttributes(p, "attributelist", "attribute", INOUT ident) DO */
-                                /* IF a1.attributes.keys().size() > 0 THEN */
-                                    /* print(a1.attributes["type"] & " " & a1.attributes["name"]) */
-                                /* END IF */
-                            /* END FOREACH */
-                        /* END IF */
-                    /* END FOREACH                     */
-                    --a.attributes["name"] = "name")
-                    /* fd.type := a.attributes["type"] */
-                    /* IF a.attributes["kind"] = "function" THEN */
-                        /* funcDecl := "DECLARE NATIVE FUNCTION " */
-                        /* fd.name :=  */
-                    /* END IF */
-                    /* IF  */
-                    /* IF a.attributes["name"] = "name" THEN */
-                        /* fp.name := a.attributes["value"] */
-                    /* END IF */
-                    /* IF a.attributes["name"] = "type" THEN */
-                        /* fp.type := a.attributes["value"] */
-                    /* END IF */
-                    /* funcParams.append(fp) */
-/*                     FOREACH a1 IN a.attributes.keys() DO
-                        IF a1 = "name" THEN
-                            paramName := a.attributes["value"]
-                        ELSIF a1 = "type" THEN
-                            paramType := a.attributes["value"]
-                        END IF
-                    END FOREACH
- */                    
-                    
-/*                     IF a.attributes.keys().size() > 0 THEN
-                        IF a.attributes["name"] = "name" THEN
-                            --print("Value: " & a.attributes["type"] & "=" & a.attributes["value"])
-                        END IF
-                        FOREACH p IN getAttributes(a, "parmlist", "parm", INOUT ident) DO
-                            IF p.attributes.keys().size() > 0 THEN
-                                FOREACH a1 IN getAttributes(p, "attributelist", "attribute", INOUT ident) DO
-                                    IF a1.attributes.keys().size() > 0 THEN
-                                        print(a1.attributes["type"] & " " & a1.attributes["name"])
-                                    END IF
-                                END FOREACH
-                            END IF
-                        END FOREACH
-                        
-                   END IF
-                   */
-                --END FOREACH
-                /* VAR funcProto: String := paramType & " " & paramName & "(" */
-                /* FOREACH p IN funcParams DO */
-                    /* funcProto := funcProto & p.name & " " & p.type & ", " */
-                /* END FOREACH */
-                /* funcProto.append(")") */
-                /* print(funcProto) */
---            END FOREACH
-    --END FOREACH
-
-    --VAR doc: Document := Document()
-
-    --LET a: Attributes := {}
-    --doc.root := createElement("Root", a)
-    
-    --doc.addNode(elm)
-
-    --VAR n: Array<Node> := doc.root.getElements("Root")
-    --n[0].children.append(createNode(NodeType.Text))
+    d := loadFromFile("../data/neon-NPP.xml")
+    print(d.toString())
 END MAIN
 
 FUNCTION getAttributes(n: Node, p, c: String, INOUT i: String): Array<Node>
